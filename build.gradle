@@ -1,6 +1,8 @@
 plugins {
     id 'java'
     id "net.serenity-bdd.serenity-gradle-plugin" version "4.2.1"
+    // SonarCloud - descomentar para habilitar análisis de código
+    // id "org.sonarqube" version "4.4.1.3373"
 }
 
 group = 'co.com.proyecto.automatizacion'
@@ -43,6 +45,20 @@ dependencies {
     // Logging (testImplementation: steps y pages usan Logger)
     testImplementation "ch.qos.logback:logback-classic:${logbackVersion}"
 }
+
+// SonarCloud - descomentar cuando el plugin org.sonarqube esté habilitado
+// Reemplazar projectKey y organization por los de tu proyecto en sonarcloud.io
+/*
+sonarqube {
+    properties {
+        property "sonar.projectKey", "eduardorrdev_proyectobaseorange"
+        property "sonar.organization", "eduardorrdev"
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.java.binaries", "build/classes"
+        property "sonar.junit.reportPaths", "build/test-results/test"
+    }
+}
+*/
 
 // 1) Usar directorio por defecto para que test y aggregate generen el reporte correctamente
 def serenityDefault = file("${projectDir}/target/site/serenity").absolutePath

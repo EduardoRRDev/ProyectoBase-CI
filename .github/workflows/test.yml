@@ -27,6 +27,13 @@ jobs:
       - name: Run tests
         run: ./gradlew clean test --tests "co.com.proyecto.automatizacion.runners.LoginRunner" --no-daemon -Dheadless.mode=true
 
+      # SonarCloud - descomentar para habilitar análisis de código
+      # Requiere: secret SONAR_TOKEN en GitHub (Settings > Secrets > Actions)
+      # - name: SonarCloud Scan
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #   run: ./gradlew sonar --no-daemon
+
       - name: Upload Serenity report
         uses: actions/upload-artifact@v4
         if: always()
