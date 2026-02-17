@@ -1,0 +1,238 @@
+plugins {
+    id 'java'
+    id "net.serenity-bdd.serenity-gradle-plugin" version "4.2.1"
+}
+
+group = 'co.com.proyecto.automatizacion'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    serenityVersion = '4.2.0'
+    cucumberVersion = '7.20.0'
+    logbackVersion = '1.4.14'
+}
+
+dependencies {
+    // Serenity BDD 4.2.0 (testImplementation: pages, steps, definitions están en src/test/java)
+    testImplementation "net.serenity-bdd:serenity-core:${serenityVersion}"
+    testImplementation "net.serenity-bdd:serenity-junit:${serenityVersion}"
+    testImplementation "net.serenity-bdd:serenity-cucumber:${serenityVersion}"
+    testImplementation "net.serenity-bdd:serenity-screenplay:${serenityVersion}"
+    testImplementation "net.serenity-bdd:serenity-screenplay-webdriver:${serenityVersion}"
+
+    // Cucumber 7 (testImplementation: definitions usan anotaciones y DataTable)
+    testImplementation "io.cucumber:cucumber-java:${cucumberVersion}"
+    testImplementation "io.cucumber:datatable:${cucumberVersion}"
+    testImplementation "io.cucumber:cucumber-junit:${cucumberVersion}"
+
+    // JUnit 4 (testImplementation: Assume en steps/hooks; CucumberWithSerenity)
+    testImplementation 'junit:junit:4.13.2'
+
+    // Assertions (testImplementation: steps usan assertThat)
+    testImplementation 'org.hamcrest:hamcrest:2.2'
+
+    // Logging (testImplementation: steps y pages usan Logger)
+    testImplementation "ch.qos.logback:logback-classic:${logbackVersion}"
+}
+
+// 1) Usar directorio por defecto para que test y aggregate generen el reporte correctamente
+def serenityDefault = file("${projectDir}/target/site/serenity").absolutePath
+
+test {
+    useJUnit()
+    testLogging.showStandardStreams = true
+    systemProperties System.getProperties()
+    systemProperty "serenity.outputDirectory", serenityDefault
+    
+    // Limpiar el directorio de reportes antes de ejecutar los tests
+    doFirst {
+        def reportDir = file("${projectDir}/target/site/serenity")
+        if (reportDir.exists()) {
+            println "Limpiando directorio de reportes anterior: ${reportDir.absolutePath}"
+            reportDir.deleteDir()
+        }
+    }
+}
+
+serenity {
+    reports = ["single-page-html"]
+}
+
+// 2) Después de aggregate, copiar el reporte a una carpeta con timestamp (historial)
+def waitForFilesReady = { File dir, int maxWaitSeconds = 10 ->
+    def indexHtml = new File(dir, "index.html")
+    def cssDir = new File(dir, "css")
+    def scriptsDir = new File(dir, "scripts")
+    
+    int attempts = 0
+    int maxAttempts = maxWaitSeconds * 10 // Verificar cada 100ms
+    int waitMs = 100
+    
+    while (attempts < maxAttempts) {
+        if (indexHtml.exists() && cssDir.exists() && scriptsDir.exists()) {
+            // Verificar que index.html no esté siendo escrito (tamaño estable)
+            if (attempts > 0) {
+                Thread.sleep(waitMs)
+                def size1 = indexHtml.length()
+                Thread.sleep(waitMs)
+                def size2 = indexHtml.length()
+                if (size1 == size2 && size1 > 0) {
+                    return true
+                }
+            } else {
+                return true
+            }
+        }
+        Thread.sleep(waitMs)
+        attempts++
+    }
+    return false
+}
+
+def copyReportToTimestampedDir = {
+    try {
+        def defaultDir = file("${projectDir}/target/site/serenity")
+        println "=========================================="
+        println "Iniciando copia del reporte..."
+        println "Directorio origen existe: ${defaultDir.exists()}"
+        println "Ruta origen: ${defaultDir.absolutePath}"
+        
+        if (!defaultDir.exists()) {
+            println "ERROR: El directorio origen no existe: ${defaultDir.absolutePath}"
+            return
+        }
+        
+        // Esperar inteligentemente a que los archivos estén listos (máximo 10 segundos)
+        println "Esperando a que los archivos estén listos..."
+        def filesReady = waitForFilesReady(defaultDir, 10)
+        
+        if (!filesReady) {
+            println "ADVERTENCIA: Timeout esperando archivos. Continuando de todas formas..."
+        }
+        
+        // Verificar archivos críticos antes de copiar
+        def indexHtml = new File(defaultDir, "index.html")
+        def cssDir = new File(defaultDir, "css")
+        def scriptsDir = new File(defaultDir, "scripts")
+        
+        println "Verificando archivos críticos..."
+        println "  index.html existe: ${indexHtml.exists()}"
+        println "  css/ existe: ${cssDir.exists()}"
+        println "  scripts/ existe: ${scriptsDir.exists()}"
+        
+        if (!indexHtml.exists()) {
+            println "ERROR: index.html no encontrado en: ${defaultDir.absolutePath}"
+            return
+        }
+        
+        // Contar archivos antes de copiar para validación
+        def sourceFilesBefore = []
+        java.nio.file.Files.walk(defaultDir.toPath()).withCloseable { stream ->
+            stream.each { path ->
+                if (java.nio.file.Files.isRegularFile(path)) {
+                    sourceFilesBefore.add(path)
+                }
+            }
+        }
+        println "Archivos encontrados en origen: ${sourceFilesBefore.size()}"
+        
+        def timestamp = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date())
+        def targetDir = file("${projectDir}/target/site/serenity-${timestamp}")
+        println "Directorio destino: ${targetDir.absolutePath}"
+        
+        // Eliminar directorio destino si existe (para evitar problemas)
+        if (targetDir.exists()) {
+            targetDir.deleteDir()
+        }
+        
+        if (!targetDir.mkdirs()) {
+            println "ERROR: No se pudo crear el directorio destino"
+            return
+        }
+        
+        int fileCount = 0
+        int errorCount = 0
+        def sourcePath = defaultDir.toPath()
+        def targetPath = targetDir.toPath()
+        
+        // Copiar todos los archivos recursivamente
+        java.nio.file.Files.walk(sourcePath).withCloseable { stream ->
+            stream.each { sourceFile ->
+                if (java.nio.file.Files.isRegularFile(sourceFile)) {
+                    try {
+                        def relativePath = sourcePath.relativize(sourceFile)
+                        def destFile = targetPath.resolve(relativePath)
+                        destFile.parent.toFile().mkdirs()
+                        java.nio.file.Files.copy(sourceFile, destFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                        fileCount++
+                    } catch (Exception e) {
+                        errorCount++
+                        println "ERROR copiando ${sourceFile.fileName}: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        // Validar que los archivos críticos se copiaron
+        def copiedIndexHtml = new File(targetDir, "index.html")
+        def copiedCssDir = new File(targetDir, "css")
+        def copiedScriptsDir = new File(targetDir, "scripts")
+        
+        def validationOk = copiedIndexHtml.exists() && copiedCssDir.exists() && copiedScriptsDir.exists()
+        
+        println "=========================================="
+        if (validationOk && errorCount == 0) {
+            println "✓ Copia completada exitosamente"
+        } else {
+            println "⚠ Copia completada con advertencias"
+            if (!copiedIndexHtml.exists()) println "  - index.html NO se copió"
+            if (!copiedCssDir.exists()) println "  - css/ NO se copió"
+            if (!copiedScriptsDir.exists()) println "  - scripts/ NO se copió"
+            if (errorCount > 0) println "  - Errores durante la copia: ${errorCount}"
+        }
+        println "Reporte principal: ${defaultDir.absolutePath}"
+        println "Copia para historial: ${targetDir.absolutePath}"
+        println "Archivos copiados: ${fileCount}"
+        if (errorCount > 0) {
+            println "Errores durante la copia: ${errorCount}"
+        }
+        println "=========================================="
+    } catch (Exception e) {
+        println "=========================================="
+        println "ERROR al copiar reporte: ${e.message}"
+        println "Stack trace: ${e.stackTrace.join('\n')}"
+        println "=========================================="
+    }
+}
+
+tasks.named("aggregate").configure {
+    mustRunAfter test
+    // Forzar ejecución siempre, incluso si los outputs están actualizados
+    outputs.upToDateWhen { false }
+    
+    doFirst {
+        System.setProperty("serenity.outputDirectory", serenityDefault)
+        println "=========================================="
+        println "Ejecutando aggregate..."
+        println "Directorio de salida: ${serenityDefault}"
+        println "=========================================="
+    }
+    
+    doLast {
+        println "=========================================="
+        println "Aggregate completado, iniciando copia del reporte..."
+        println "=========================================="
+        copyReportToTimestampedDir()
+    }
+}
+
+test.finalizedBy(aggregate)
