@@ -2,6 +2,7 @@ package co.com.proyecto.automatizacion.pages.mapeos;
 
 import net.serenitybdd.core.annotations.findby.FindBy;
 import net.serenitybdd.core.annotations.findby.How;
+import net.serenitybdd.core.pages.PageObject;
 import net.serenitybdd.core.pages.WebElementFacade;
 import net.serenitybdd.annotations.DefaultUrl;
 
@@ -20,7 +21,7 @@ import net.serenitybdd.annotations.DefaultUrl;
  *          y lo cachea para uso posterior.
  */
 @DefaultUrl("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login")
-public class LoginPage extends GeneralPage {
+public class LoginPage extends PageObject {
 
     @FindBy(how = How.NAME, using = "username")
     public WebElementFacade inputUsername;

@@ -28,7 +28,7 @@ src/
     │   ├── config/          # Configuración (TestConfig, credenciales)
     │   ├── definitions/     # Step definitions (Cucumber)
     │   ├── steps/           # Steps reutilizables (Serenity @Step)
-    │   ├── pages/mapeos/    # Page Objects (LoginPage, MainPage)
+    │   ├── pages/mapeos/    # Page Objects (LoginPage, MainPage) - extienden PageObject
     │   ├── hooks/           # Hooks (DriverHooks)
     │   └── runners/         # Runners por feature
     └── resources/

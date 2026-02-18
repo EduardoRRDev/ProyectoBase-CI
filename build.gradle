@@ -28,13 +28,12 @@ dependencies {
     testImplementation "net.serenity-bdd:serenity-core:${serenityVersion}"
     testImplementation "net.serenity-bdd:serenity-junit:${serenityVersion}"
     testImplementation "net.serenity-bdd:serenity-cucumber:${serenityVersion}"
-    testImplementation "net.serenity-bdd:serenity-screenplay:${serenityVersion}"
-    testImplementation "net.serenity-bdd:serenity-screenplay-webdriver:${serenityVersion}"
+    // serenity-screenplay y serenity-screenplay-webdriver: no se usan (proyecto usa POM, no Screenplay)
 
-    // Cucumber 7 (testImplementation: definitions usan anotaciones y DataTable)
+    // Cucumber 7
     testImplementation "io.cucumber:cucumber-java:${cucumberVersion}"
-    testImplementation "io.cucumber:datatable:${cucumberVersion}"
     testImplementation "io.cucumber:cucumber-junit:${cucumberVersion}"
+    // cucumber-datatable: viene transitivo con cucumber-java; no se usa DataTable en los escenarios actuales
 
     // JUnit 4 (testImplementation: Assume en steps/hooks; CucumberWithSerenity)
     testImplementation 'junit:junit:4.13.2'
